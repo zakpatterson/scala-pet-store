@@ -75,10 +75,12 @@ class UserEndpoints[F[_]: Effect, A, K] extends Http4sDsl[F] {
     }
 
   private def updateEndpoint(userService: UserService[F], authService: AS): HttpService[F] = {
-    HttpService {
-      case req @ PUT -> Root / "users" =>
+    val Auth = SecuredRequestHandler(authService)
+
+    Auth {
+      case req @ PUT -> Root / "users" asAuthed _ =>
         val action = for {
-          updateUser <- req.as[User]
+          updateUser <- req.request.as[User]
           result <- userService.update(updateUser).value
         } yield result
 
