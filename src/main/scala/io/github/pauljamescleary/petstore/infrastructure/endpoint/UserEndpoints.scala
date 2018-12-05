@@ -17,7 +17,8 @@ import domain.authentication._
 import tsec.common.Verified
 import tsec.passwordhashers.{PasswordHash, PasswordHasher}
 
-class UserEndpoints[F[_]: Effect, A] extends Http4sDsl[F] {
+class UserEndpoints[F[_]: Effect : UserService, A](implicit cryptService : PasswordHasher[F, A]) extends Http4sDsl[F] {
+  val userService : UserService[F] = implicitly
   import Pagination._
   /* Jsonization of our User type */
 
@@ -26,7 +27,7 @@ class UserEndpoints[F[_]: Effect, A] extends Http4sDsl[F] {
 
   implicit val signupReqDecoder: EntityDecoder[F, SignupRequest] = jsonOf
 
-  private def loginEndpoint(userService: UserService[F], cryptService: PasswordHasher[F, A]): HttpRoutes[F] =
+  private def loginEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ POST -> Root / "login" =>
         val action: EitherT[F, UserAuthenticationFailedError, User] = for {
@@ -45,12 +46,12 @@ class UserEndpoints[F[_]: Effect, A] extends Http4sDsl[F] {
         }
     }
 
-  private def signupEndpoint(userService: UserService[F], crypt: PasswordHasher[F, A]): HttpRoutes[F] =
+  private def signupEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ POST -> Root / "users" =>
         val action = for {
           signup <- req.as[SignupRequest]
-          hash <- crypt.hashpw(signup.password)
+          hash <- cryptService.hashpw(signup.password)
           user <- signup.asUser(hash).pure[F]
           result <- userService.createUser(user).value
         } yield result
@@ -62,7 +63,7 @@ class UserEndpoints[F[_]: Effect, A] extends Http4sDsl[F] {
         }
     }
 
-  private def updateEndpoint(userService: UserService[F]): HttpRoutes[F] =
+  private def updateEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ PUT -> Root / "users" / name =>
         val action = for {
@@ -77,7 +78,7 @@ class UserEndpoints[F[_]: Effect, A] extends Http4sDsl[F] {
         }
     }
 
-  private def listEndpoint(userService: UserService[F]): HttpRoutes[F] =
+  private def listEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET -> Root / "users" :? PageSizeMatcher(pageSize) :? OffsetMatcher(offset) =>
         for {
@@ -86,7 +87,7 @@ class UserEndpoints[F[_]: Effect, A] extends Http4sDsl[F] {
         } yield resp
     }
 
-  private def searchByNameEndpoint(userService: UserService[F]): HttpRoutes[F] =
+  private def searchByNameEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET -> Root / "users" / userName =>
         userService.getUserByName(userName).value.flatMap {
@@ -95,7 +96,7 @@ class UserEndpoints[F[_]: Effect, A] extends Http4sDsl[F] {
         }
     }
 
-  private def deleteUserEndpoint(userService: UserService[F]): HttpRoutes[F] =
+  private def deleteUserEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case DELETE -> Root / "users" / userName =>
         for {
@@ -104,19 +105,16 @@ class UserEndpoints[F[_]: Effect, A] extends Http4sDsl[F] {
         } yield resp
     }
 
-  def endpoints(userService: UserService[F], cryptService: PasswordHasher[F, A]): HttpRoutes[F] =
-    loginEndpoint(userService, cryptService) <+>
-    signupEndpoint(userService, cryptService) <+>
-    updateEndpoint(userService) <+>
-    listEndpoint(userService)   <+>
-    searchByNameEndpoint(userService)   <+>
-    deleteUserEndpoint(userService)
+  def endpoints: HttpRoutes[F] =
+    loginEndpoint <+>
+    signupEndpoint <+>
+    updateEndpoint <+>
+    listEndpoint   <+>
+    searchByNameEndpoint   <+>
+    deleteUserEndpoint
 }
 
 object UserEndpoints {
-  def endpoints[F[_]: Effect, A](
-    userService: UserService[F],
-    cryptService: PasswordHasher[F, A]
-  ): HttpRoutes[F] =
-    new UserEndpoints[F, A].endpoints(userService, cryptService)
+  def endpoints[F[_]: Effect : UserService, A](implicit cryptService: PasswordHasher[F, A]): HttpRoutes[F] =
+    new UserEndpoints[F, A].endpoints
 }

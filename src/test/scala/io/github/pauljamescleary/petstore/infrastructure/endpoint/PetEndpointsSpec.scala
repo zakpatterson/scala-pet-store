@@ -31,8 +31,8 @@ class PetEndpointsSpec
 
     val petRepo = PetRepositoryInMemoryInterpreter[IO]()
     val petValidation = PetValidationInterpreter[IO](petRepo)
-    val petService = PetService[IO](petRepo, petValidation)
-    val petHttpService = PetEndpoints.endpoints[IO](petService).orNotFound
+    implicit val petService = PetService[IO](petRepo, petValidation)
+    val petHttpService = PetEndpoints.endpoints[IO].orNotFound
 
     forAll { (pet: Pet) =>
       (for {
@@ -49,8 +49,8 @@ class PetEndpointsSpec
 
     val petRepo = PetRepositoryInMemoryInterpreter[IO]()
     val petValidation = PetValidationInterpreter[IO](petRepo)
-    val petService = PetService[IO](petRepo, petValidation)
-    val petHttpService = PetEndpoints.endpoints[IO](petService).orNotFound
+    implicit val petService = PetService[IO](petRepo, petValidation)
+    val petHttpService = PetEndpoints.endpoints[IO].orNotFound
 
     forAll { (pet: Pet) =>
       (for {

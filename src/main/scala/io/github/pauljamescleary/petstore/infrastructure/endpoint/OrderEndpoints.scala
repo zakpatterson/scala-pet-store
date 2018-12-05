@@ -11,8 +11,8 @@ import scala.language.higherKinds
 import io.github.pauljamescleary.petstore.domain.OrderNotFoundError
 import io.github.pauljamescleary.petstore.domain.orders.{Order, OrderService}
 
-class OrderEndpoints[F[_]: Effect] extends Http4sDsl[F] {
-
+class OrderEndpoints[F[_]: Effect : OrderService] extends Http4sDsl[F] {
+  val orderService : OrderService[F] = implicitly
   /* Need Instant Json Encoding */
   import io.circe.java8.time._
 
@@ -22,7 +22,8 @@ class OrderEndpoints[F[_]: Effect] extends Http4sDsl[F] {
   /* Needed to decode entities */
   implicit val orderDecoder = jsonOf[F, Order]
 
-  def placeOrderEndpoint(orderService: OrderService[F]): HttpRoutes[F] =
+
+  def placeOrderEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ POST -> Root / "orders" => {
         for {
@@ -33,7 +34,7 @@ class OrderEndpoints[F[_]: Effect] extends Http4sDsl[F] {
       }
     }
 
-  private def getOrderEndpoint(orderService: OrderService[F]): HttpRoutes[F] =
+  private def getOrderEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET -> Root / "orders" / LongVar(id) =>
         orderService.get(id).value.flatMap {
@@ -42,7 +43,7 @@ class OrderEndpoints[F[_]: Effect] extends Http4sDsl[F] {
         }
     }
 
-  private def deleteOrderEndpoint(orderService: OrderService[F]): HttpRoutes[F] =
+  private def deleteOrderEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case DELETE -> Root / "orders" / LongVar(id) =>
         for {
@@ -51,11 +52,10 @@ class OrderEndpoints[F[_]: Effect] extends Http4sDsl[F] {
         } yield resp
     }
 
-  def endpoints(orderService: OrderService[F]): HttpRoutes[F] =
-    placeOrderEndpoint(orderService) <+> getOrderEndpoint(orderService) <+> deleteOrderEndpoint(orderService)
+  def endpoints: HttpRoutes[F] =
+    placeOrderEndpoint <+> getOrderEndpoint <+> deleteOrderEndpoint
 }
 
 object OrderEndpoints {
-  def endpoints[F[_]: Effect](orderService: OrderService[F]): HttpRoutes[F] =
-    new OrderEndpoints[F].endpoints(orderService)
+  def endpoints[F[_]: Effect : OrderService]: HttpRoutes[F] = new OrderEndpoints[F].endpoints
 }

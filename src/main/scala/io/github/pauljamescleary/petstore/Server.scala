@@ -27,13 +27,17 @@ object Server extends IOApp {
       orderRepo      =  DoobieOrderRepositoryInterpreter[F](xa)
       userRepo       =  DoobieUserRepositoryInterpreter[F](xa)
       petValidation  =  PetValidationInterpreter[F](petRepo)
-      petService     =  PetService[F](petRepo, petValidation)
       userValidation =  UserValidationInterpreter[F](userRepo)
-      orderService   =  OrderService[F](orderRepo)
-      userService    =  UserService[F](userRepo, userValidation)
-      services       =  PetEndpoints.endpoints[F](petService) <+>
-                            OrderEndpoints.endpoints[F](orderService) <+>
-                            UserEndpoints.endpoints[F, BCrypt](userService, BCrypt.syncPasswordHasher[F])
+      services       =  {
+        implicit val petService = PetService[F](petRepo, petValidation)
+        implicit val orderService = OrderService[F](orderRepo)
+        implicit val userService = UserService[F](userRepo, userValidation)
+        implicit val pwHasher = BCrypt.syncPasswordHasher[F]
+
+        PetEndpoints.endpoints[F] <+>
+          OrderEndpoints.endpoints[F] <+>
+          UserEndpoints.endpoints[F, BCrypt]
+      }
       httpApp = Router("/" -> services).orNotFound
       _ <- Resource.liftF(DatabaseConfig.initializeDb(conf.db))
       exitCode <- Resource.liftF(

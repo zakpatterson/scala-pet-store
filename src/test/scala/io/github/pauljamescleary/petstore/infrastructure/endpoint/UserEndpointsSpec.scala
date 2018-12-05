@@ -36,8 +36,9 @@ class UserEndpointsSpec
   test("create user") {
     val userRepo = UserRepositoryInMemoryInterpreter[IO]()
     val userValidation = UserValidationInterpreter[IO](userRepo)
-    val userService = UserService[IO](userRepo, userValidation)
-    val userHttpService = UserEndpoints.endpoints(userService, BCrypt.syncPasswordHasher[IO]).orNotFound
+    implicit val userService = UserService[IO](userRepo, userValidation)
+    implicit val pwHasher = BCrypt.syncPasswordHasher[IO]
+    val userHttpService = UserEndpoints.endpoints[IO, BCrypt].orNotFound
 
     forAll { userSignup: SignupRequest =>
       (for {
@@ -52,8 +53,9 @@ class UserEndpointsSpec
   test("update user") {
     val userRepo = UserRepositoryInMemoryInterpreter[IO]()
     val userValidation = UserValidationInterpreter[IO](userRepo)
-    val userService = UserService[IO](userRepo, userValidation)
-    val userHttpService = UserEndpoints.endpoints(userService, BCrypt.syncPasswordHasher[IO]).orNotFound
+    implicit val userService = UserService[IO](userRepo, userValidation)
+    implicit val pwHasher = BCrypt.syncPasswordHasher[IO]
+    val userHttpService = UserEndpoints.endpoints[IO, BCrypt].orNotFound
 
     forAll { userSignup: SignupRequest =>
       (for {
@@ -75,8 +77,9 @@ class UserEndpointsSpec
   test("get user by userName") {
     val userRepo = UserRepositoryInMemoryInterpreter[IO]()
     val userValidation = UserValidationInterpreter[IO](userRepo)
-    val userService = UserService[IO](userRepo, userValidation)
-    val userHttpService = UserEndpoints.endpoints(userService, BCrypt.syncPasswordHasher[IO]).orNotFound
+    implicit val userService = UserService[IO](userRepo, userValidation)
+    implicit val pwHasher = BCrypt.syncPasswordHasher[IO]
+    val userHttpService = UserEndpoints.endpoints[IO, BCrypt].orNotFound
 
     forAll { userSignup: SignupRequest =>
       (for {
@@ -97,8 +100,9 @@ class UserEndpointsSpec
   test("delete user by userName") {
     val userRepo = UserRepositoryInMemoryInterpreter[IO]()
     val userValidation = UserValidationInterpreter[IO](userRepo)
-    val userService = UserService[IO](userRepo, userValidation)
-    val userHttpService = UserEndpoints.endpoints(userService, BCrypt.syncPasswordHasher[IO]).orNotFound
+    implicit val userService = UserService[IO](userRepo, userValidation)
+    implicit val pwHasher = BCrypt.syncPasswordHasher[IO]
+    val userHttpService = UserEndpoints.endpoints[IO, BCrypt].orNotFound
 
     forAll { userSignup: SignupRequest =>
       (for {

@@ -32,8 +32,8 @@ class OrderEndpointsSpec
 
   test("place order") {
 
-    val orderService = OrderService(OrderRepositoryInMemoryInterpreter[IO]())
-    val orderHttpService = OrderEndpoints.endpoints[IO](orderService).orNotFound
+    implicit val orderService = OrderService(OrderRepositoryInMemoryInterpreter[IO]())
+    val orderHttpService = OrderEndpoints.endpoints[IO].orNotFound
 
     forAll { (order: Order) =>
       (for {

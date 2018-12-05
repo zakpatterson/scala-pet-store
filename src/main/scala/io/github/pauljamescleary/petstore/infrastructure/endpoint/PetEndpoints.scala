@@ -14,9 +14,9 @@ import scala.language.higherKinds
 import io.github.pauljamescleary.petstore.domain.{PetAlreadyExistsError, PetNotFoundError}
 import io.github.pauljamescleary.petstore.domain.pets.{Pet, PetService, PetStatus}
 
-class PetEndpoints[F[_]: Effect] extends Http4sDsl[F] {
-
+class PetEndpoints[F[_]: Effect : PetService] extends Http4sDsl[F] {
   import Pagination._
+  val petService : PetService[F] = implicitly
 
   /* Parses out status query param which could be multi param */
   implicit val statusQueryParamDecoder: QueryParamDecoder[PetStatus] =
@@ -30,7 +30,7 @@ class PetEndpoints[F[_]: Effect] extends Http4sDsl[F] {
 
   implicit val petDecoder: EntityDecoder[F, Pet] = jsonOf[F, Pet]
 
-  private def createPetEndpoint(petService: PetService[F]): HttpRoutes[F] =
+  private def createPetEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ POST -> Root / "pets" =>
         val action = for {
@@ -46,7 +46,7 @@ class PetEndpoints[F[_]: Effect] extends Http4sDsl[F] {
         }
     }
 
-  private def updatePetEndpoint(petService: PetService[F]): HttpRoutes[F] =
+  private def updatePetEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case req @ PUT -> Root / "pets" / LongVar(petId) =>
         val action = for {
@@ -61,7 +61,7 @@ class PetEndpoints[F[_]: Effect] extends Http4sDsl[F] {
         }
     }
 
-  private def getPetEndpoint(petService: PetService[F]): HttpRoutes[F] =
+  private def getPetEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET -> Root / "pets" / LongVar(id) =>
         petService.get(id).value.flatMap {
@@ -70,7 +70,7 @@ class PetEndpoints[F[_]: Effect] extends Http4sDsl[F] {
         }
     }
 
-  private def deletePetEndpoint(petService: PetService[F]): HttpRoutes[F] =
+  private def deletePetEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case DELETE -> Root / "pets" / LongVar(id) =>
         for {
@@ -79,7 +79,7 @@ class PetEndpoints[F[_]: Effect] extends Http4sDsl[F] {
         } yield resp
     }
 
-  private def listPetsEndpoint(petService: PetService[F]): HttpRoutes[F] =
+  private def listPetsEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET -> Root / "pets" :? PageSizeMatcher(pageSize) :? OffsetMatcher(offset) =>
         for {
@@ -88,7 +88,7 @@ class PetEndpoints[F[_]: Effect] extends Http4sDsl[F] {
         } yield resp
     }
 
-  private def findPetsByStatusEndpoint(petService: PetService[F]): HttpRoutes[F] =
+  private def findPetsByStatusEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET -> Root / "pets" / "findByStatus" :? StatusMatcher(Valid(Nil)) =>
         // User did not specify any statuses
@@ -102,7 +102,7 @@ class PetEndpoints[F[_]: Effect] extends Http4sDsl[F] {
         } yield resp
     }
 
-  private def findPetsByTagEndpoint(petService: PetService[F]): HttpRoutes[F] =
+  private def findPetsByTagEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET -> Root / "pets" / "findByTags" :? TagMatcher(Valid(Nil)) =>
         BadRequest("tag parameter not specified")
@@ -115,17 +115,16 @@ class PetEndpoints[F[_]: Effect] extends Http4sDsl[F] {
 
     }
 
-  def endpoints(petService: PetService[F]): HttpRoutes[F] =
-    createPetEndpoint(petService) <+>
-      getPetEndpoint(petService) <+>
-      deletePetEndpoint(petService) <+>
-      listPetsEndpoint(petService) <+>
-      findPetsByStatusEndpoint(petService) <+>
-      updatePetEndpoint(petService) <+>
-      findPetsByTagEndpoint(petService)
+  def endpoints: HttpRoutes[F] =
+    createPetEndpoint <+>
+      getPetEndpoint <+>
+      deletePetEndpoint <+>
+      listPetsEndpoint <+>
+      findPetsByStatusEndpoint <+>
+      updatePetEndpoint <+>
+      findPetsByTagEndpoint
 }
 
 object PetEndpoints {
-  def endpoints[F[_]: Effect](petService: PetService[F]): HttpRoutes[F] =
-    new PetEndpoints[F].endpoints(petService)
+  def endpoints[F[_]: Effect : PetService]: HttpRoutes[F] = new PetEndpoints[F].endpoints
 }
