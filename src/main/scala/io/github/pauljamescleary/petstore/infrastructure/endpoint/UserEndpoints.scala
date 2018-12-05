@@ -18,7 +18,7 @@ import tsec.common.Verified
 import tsec.passwordhashers.{PasswordHash, PasswordHasher}
 
 class UserEndpoints[F[_]: Effect : UserService, A](implicit cryptService : PasswordHasher[F, A]) extends Http4sDsl[F] {
-  val userService : UserService[F] = implicitly
+  val S : UserService[F] = implicitly
   import Pagination._
   /* Jsonization of our User type */
 
@@ -33,7 +33,7 @@ class UserEndpoints[F[_]: Effect : UserService, A](implicit cryptService : Passw
         val action: EitherT[F, UserAuthenticationFailedError, User] = for {
           login <- EitherT.liftF(req.as[LoginRequest])
           name = login.userName
-          user <- userService.getUserByName(name).leftMap(_ => UserAuthenticationFailedError(name))
+          user <- S.getUserByName(name).leftMap(_ => UserAuthenticationFailedError(name))
           checkResult <- EitherT.liftF(cryptService.checkpw(login.password, PasswordHash[A](user.hash)))
           resp <-
             if(checkResult == Verified) EitherT.rightT[F, UserAuthenticationFailedError](user)
@@ -53,7 +53,7 @@ class UserEndpoints[F[_]: Effect : UserService, A](implicit cryptService : Passw
           signup <- req.as[SignupRequest]
           hash <- cryptService.hashpw(signup.password)
           user <- signup.asUser(hash).pure[F]
-          result <- userService.createUser(user).value
+          result <- S.createUser(user).value
         } yield result
 
         action.flatMap {
@@ -69,7 +69,7 @@ class UserEndpoints[F[_]: Effect : UserService, A](implicit cryptService : Passw
         val action = for {
           user <- req.as[User]
           updated = user.copy(userName = name)
-          result <- userService.update(updated).value
+          result <- S.update(updated).value
         } yield result
 
         action.flatMap {
@@ -82,7 +82,7 @@ class UserEndpoints[F[_]: Effect : UserService, A](implicit cryptService : Passw
     HttpRoutes.of[F] {
       case GET -> Root / "users" :? PageSizeMatcher(pageSize) :? OffsetMatcher(offset) =>
         for {
-          retrived <- userService.list(pageSize, offset)
+          retrived <- S.list(pageSize, offset)
           resp <- Ok(retrived.asJson)
         } yield resp
     }
@@ -90,7 +90,7 @@ class UserEndpoints[F[_]: Effect : UserService, A](implicit cryptService : Passw
   private def searchByNameEndpoint: HttpRoutes[F] =
     HttpRoutes.of[F] {
       case GET -> Root / "users" / userName =>
-        userService.getUserByName(userName).value.flatMap {
+        S.getUserByName(userName).value.flatMap {
           case Right(found) => Ok(found.asJson)
           case Left(UserNotFoundError) => NotFound("The user was not found")
         }
@@ -100,7 +100,7 @@ class UserEndpoints[F[_]: Effect : UserService, A](implicit cryptService : Passw
     HttpRoutes.of[F] {
       case DELETE -> Root / "users" / userName =>
         for {
-          _ <- userService.deleteByUserName(userName)
+          _ <- S.deleteByUserName(userName)
           resp <- Ok()
         } yield resp
     }
